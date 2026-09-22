@@ -1,0 +1,12 @@
+# tar 归档（buildroot_dl / ubuntu-base 等）
+*.tar
+*.tar.gz
+*.tgz
+*.tar.bz2
+*.tar.xz
+
+# repo(1) 多仓工作区元数据（16GB，含嵌套 git 仓库）
+.repo/
+
+# 本地 agent 运行态
+.pi/
