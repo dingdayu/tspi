@@ -116,11 +116,8 @@ None.
 
 ### NEXT
 
-1. `make baseline` — prove the unmodified vendor toolchain. **Blocked on Docker**:
-   the daemon is not running in this environment (no `/var/run/docker.sock`, no
-   systemd), so run it host-side or start `dockerd` first.
-2. `make patch && make kernel`.
-3. `make rootfs && make image`.
+1. `make patch && make kernel` — DWC3 → peripheral; verify effective `.config`/DTB.
+2. `make rootfs && make image`; then `make verify`.
 
 ### Extraction & local sync (2026-10-13) — DONE
 
@@ -135,25 +132,40 @@ None.
 - `sdk/work/tspi-linux-sdk` symlinked to the extracted tree; `repo sync -l -j16`
   populated the worktree from local objects (no network); post-sync **State D**
   (`device/rockchip`, `build.sh`, `kernel-6.1`, `.repo` all present).
-- Performed host-side because the builder container is unavailable; the Makefile
-  targets `sdk-extract`/`sdk-sync` wrap through `scripts/host/enter-builder.sh`.
 
-#### BLOCKED (environment) — `make baseline`
+#### Vendor baseline build (2026-10-13) — DONE (host-side, no Docker)
 
-- Board config is ready: `rockchip_rk3566_taishanpi_1m_v10_defconfig` is detected
-  under `device/rockchip/.chips/rk3566_rk3568/`, and `build.sh` is present.
-- Cannot build yet: the builder container is unavailable and cannot be started by
-  the agent — Docker daemon is down (`/var/run/docker.sock` absent), there is no
-  systemd, no passwordless `sudo`, `/var/run` is not writable, and `podman` is not
-  installed.
-- Host-side build is not viable either: required toolchain pieces are missing
-  (`flex`, `dtc`, `bc`, …) and cannot be installed without root.
-- Resolution: start a working Docker daemon (or provide a host with the vendor
-  build dependencies / a privileged builder) and re-run `make baseline`.
-- Rootless Docker was attempted and is **not possible** here: user namespaces are
-  blocked by the container seccomp filter (`unshare -Ur` / `unshare(CLONE_NEWUSER)`
-  → `EPERM`; `Seccomp: 2`), and `rootlesskit`/`slirp4netns`/`fuse-overlayfs`/
-  `newuidmap` are absent.
+- Board config: `rockchip_rk3566_taishanpi_1m_v10_defconfig` (auto-detected).
+- The documented builder container could not be used: Docker daemon is down,
+  there is no systemd, no passwordless `sudo`, `/var/run` is not writable, no
+  `podman`; rootless Docker is impossible (seccomp blocks user namespaces:
+  `unshare -Ur`/`CLONE_NEWUSER` → `EPERM`; `rootlesskit`/`slirp4netns` absent).
+- Instead the vendor build was run **directly in this container** with a minimal,
+  no-root userspace overlay:
+  - `~/.local/sdk-tools` — symlinks for tools the container lacks, from a
+    conda-forge env (`~/.local/sdkbuild`): `flex bc dtc cpio gawk gperf msgmerge
+    makeinfo lz4 zstd fdtget fdtput fdtdump fdtoverlay`, plus a patched
+    `fakeroot` served from a dedicated prefix `~/.local/sdk-fakeroot` (Buildroot's
+    own `fakeroot` hard-codes its host path and shadows the system `libext2fs`).
+  - `~/.local/sdk-hdrs` (only `gmp.h`, `mpfr.h`, `mpc.h`) exposed via `CPATH` for
+    the vendor `check-kernel.sh`. conda lib/include dirs are deliberately **not**
+    exposed, otherwise `check-buildroot.sh` aborts on `libiconv`.
+  - Env: `PATH=~/.local/sdk-tools:$PATH CPATH=~/.local/sdk-hdrs`, with
+    `LIBRARY_PATH`/`LD_LIBRARY_PATH` unset.
+- Result: `./build.sh` completed **all** stages, exit 0 —
+  `misc → uboot → kernel → rootfs(buildroot) → recovery-kernel → recovery →
+  extra-parts → updateimg → firmware`. Post-build **State E**.
+- Artifacts (under `sdk/work/tspi-linux-sdk/`):
+  - `output/update/Image/update.img` (~1.0 GiB)
+  - `output/firmware/`: `boot.img`(40M), `rootfs.img`(902M), `uboot.img`(4M),
+    `MiniLoaderAll.bin`(539K), `recovery.img`(46M), `misc.img`, `oem.img`,
+    `userdata.img`, `parameter.txt`, `update.img`
+  - `kernel-6.1/arch/arm64/boot/Image.lz4`(17M) and
+    `dts/rockchip/tspi-rk3566-user-v10-linux.dtb`
+- NOTE: because the builder container is unavailable, `make baseline` (which runs
+  through `scripts/host/enter-builder.sh`) was not used; the equivalent vendor
+  `./build.sh` was run directly. With a working Docker daemon, `make baseline`
+  reproduces the documented container path.
 
 ### Notes on removed tooling
 
