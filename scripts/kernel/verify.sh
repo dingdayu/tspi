@@ -32,7 +32,7 @@ check_config() {
     line="$(printf '%s' "${line}" | tr -d '[:space:]')"
     [[ -z "${line}" ]] && continue
     if [[ "${line}" == *=* ]]; then sym="${line%%=*}"; want="${line#*=}"; else sym="${line}"; want="y"; fi
-    have="$(grep -E "^${sym}=" "${cfg}" 2>/dev/null | head -1 | cut -d= -f2)"
+    have="$(grep -E "^${sym}=" "${cfg}" 2>/dev/null | head -1 | cut -d= -f2 || true)"
     if [[ "${have}" == "${want}" ]]; then
       emit "  OK      ${sym}=${have}"
     else
@@ -57,10 +57,26 @@ check_dtb() {
     emit "  dtc not installed; cannot decompile ${dtb#${PROJECT_ROOT}/}"
     return 1
   fi
-  local dts_txt
+  # `dtc -I dtb -O dts` does not inline labels, so the node appears as its unit
+  # address (e.g. usb@fcc00000) and the label only in __symbols__. Resolve the
+  # label to a node path and read dr_mode directly from the DTB with fdtget.
+  local dts_txt node_path leaf val node
   dts_txt="$(dtc -I dtb -O dts -o - "${dtb}" 2>/dev/null || true)"
-  local node
-  node="$(printf '%s\n' "${dts_txt}" | grep -B2 -A12 -E "^[[:space:]]*${DWC3_NODE}" | head -40)"
+  node_path="$(printf '%s\n' "${dts_txt}" | sed -n "s/.*[[:space:]]${DWC3_NODE} = \"\([^\"]*\)\";.*/\1/p" | head -1)"
+  if [[ -n "${node_path}" ]] && command -v fdtget >/dev/null 2>&1; then
+    val="$(fdtget -t s "${dtb}" "${node_path}" dr_mode 2>/dev/null || true)"
+    if [[ "${val}" == "peripheral" ]]; then
+      emit "  OK      &${DWC3_NODE} (${node_path}) dr_mode = \"peripheral\""
+      return 0
+    fi
+    emit "  note    &${DWC3_NODE} at ${node_path} has dr_mode=${val:-unset}"
+  fi
+  # Fallback: locate the node text by its leaf name (or any snps,dwc3 node).
+  if [[ -n "${node_path}" ]]; then
+    leaf="${node_path##*/}"
+    node="$(printf '%s\n' "${dts_txt}" | grep -A40 -E "^[[:space:]]*${leaf} \{" | head -60 || true)"
+  fi
+  [[ -n "${node}" ]] || node="$(printf '%s\n' "${dts_txt}" | grep -A30 'compatible = "snps,dwc3"' | head -60 || true)"
   if printf '%s' "${node}" | grep -q 'dr_mode = "peripheral"'; then
     emit "  OK      &${DWC3_NODE} dr_mode = \"peripheral\""
     return 0
