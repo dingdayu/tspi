@@ -138,6 +138,19 @@ None.
 - Performed host-side because the builder container is unavailable; the Makefile
   targets `sdk-extract`/`sdk-sync` wrap through `scripts/host/enter-builder.sh`.
 
+#### BLOCKED (environment) — `make baseline`
+
+- Board config is ready: `rockchip_rk3566_taishanpi_1m_v10_defconfig` is detected
+  under `device/rockchip/.chips/rk3566_rk3568/`, and `build.sh` is present.
+- Cannot build yet: the builder container is unavailable and cannot be started by
+  the agent — Docker daemon is down (`/var/run/docker.sock` absent), there is no
+  systemd, no passwordless `sudo`, `/var/run` is not writable, and `podman` is not
+  installed.
+- Host-side build is not viable either: required toolchain pieces are missing
+  (`flex`, `dtc`, `bc`, …) and cannot be installed without root.
+- Resolution: start a working Docker daemon (or provide a host with the vendor
+  build dependencies / a privileged builder) and re-run `make baseline`.
+
 ### Notes on removed tooling
 
 All ad-hoc download tooling created during this phase was removed at the user's
