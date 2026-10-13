@@ -1,0 +1,11 @@
+[Unit]
+Description=Start the recovery Wi-Fi AP if station connectivity is unavailable
+
+[Timer]
+# Give station mode a grace period (default 60s) before falling back.
+OnBootSec=60s
+Unit=one-kvm-recovery-ap.service
+Persistent=false
+
+[Install]
+WantedBy=timers.target
