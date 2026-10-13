@@ -39,11 +39,38 @@ unpack_image() {
   rmdir "${mnt}" 2>/dev/null || true
 }
 
+# The vendor Debian rootfs is built from a prebuilt base tarball, but
+# device/rockchip/common/scripts/check-debian.sh refuses to proceed unless
+# live-build and debootstrap advertise the target release (bookworm). Create the
+# expected markers at runtime so a stale builder image cannot block the build.
+# Idempotent; must run as root (the builder container does).
+ensure_debian_check_markers() {
+  local rel="${RK_DEBIAN_VERSION:-bookworm}"
+  local lb="/usr/share/live/build/data/debian-cd/${rel}"
+  local db="/usr/share/debootstrap/scripts/${rel}"
+  if [[ "$(id -u)" -ne 0 ]]; then
+    log_warn "not root: cannot create Debian check markers (${rel}); rebuild the builder image if check-debian.sh fails"
+    return 0
+  fi
+  mkdir -p "${lb}"
+  if [[ ! -e "${db}" ]]; then
+    if [[ -e /usr/share/debootstrap/scripts/sid ]]; then
+      ln -sf /usr/share/debootstrap/scripts/sid "${db}" 2>/dev/null || true
+    else
+      : > "${db}" 2>/dev/null || true
+    fi
+  fi
+  log_info "ensured Debian check markers for ${rel}"
+}
+
 build_main() {
   log_phase "Rootfs build (${ROOTFS_SYSTEM})"
   ensure_build_dirs
   require_cmd bash
   sdk_require_present
+  if [[ "${ROOTFS_SYSTEM}" == "debian" ]]; then
+    ensure_debian_check_markers
+  fi
 
   local work
   work="$(sdk_find_work_dir)" || die "cannot locate the SDK work tree"
