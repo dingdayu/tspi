@@ -1,0 +1,15 @@
+[Unit]
+Description=One-KVM recovery Wi-Fi AP (fallback when station mode is unavailable)
+After=NetworkManager.service
+Wants=NetworkManager.service
+ConditionPathExists=/etc/default/one-kvm-recovery-ap
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/wifi-recovery-ap.sh
+# Never fail the boot if the recovery AP cannot start.
+SuccessExitStatus=0 1
+
+[Install]
+WantedBy=multi-user.target
