@@ -21,10 +21,16 @@ run_args=(run --privileged --rm
   -v "${PROJECT_ROOT}:/work"
   -w /work
   -e "RK_SDK_DIR=/work/sdk")
-if [[ -d /proc/sys/fs/binfmt_misc ]]; then
+# Share the host binfmt_misc registry only when it is a real mountpoint. A plain
+# directory under /proc cannot be bind-mounted (Docker errors with "cannot be
+# mounted because it is inside /proc"), and qemu-aarch64 may not be registered.
+if mountpoint -q /proc/sys/fs/binfmt_misc; then
   run_args+=(-v /proc/sys/fs/binfmt_misc:/proc/sys/fs/binfmt_misc)
 else
-  log_warn "/proc/sys/fs/binfmt_misc not present; qemu-user-static chroot may not work"
+  log_warn "/proc/sys/fs/binfmt_misc is not a mountpoint; skipping the bind mount."
+  log_warn "For arm64 chroot (Debian rootfs) enable it on the host:"
+  log_warn "  sudo mount binfmt_misc -t binfmt_misc /proc/sys/fs/binfmt_misc"
+  log_warn "  sudo update-binfmts --enable qemu-aarch64"
 fi
 
 if [[ "${1:-}" == "--" ]]; then
