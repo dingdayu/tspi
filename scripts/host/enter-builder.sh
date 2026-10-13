@@ -17,9 +17,17 @@ if ! "${engine}" image inspect "${image_ref}" >/dev/null 2>&1; then
   bash "${SCRIPTS_DIR}/host/build-builder.sh"
 fi
 
-run_args=(run --privileged --rm
+run_args=(run --privileged --rm -i
   -v "${PROJECT_ROOT}:/work"
   -w /work)
+# Attach stdin (-i) so vendor interactive prompts (e.g. check-network.sh's
+# "Enter any thing within 5 seconds") can be answered. Forward host proxy
+# settings so the vendor network probes and Buildroot downloads can reach the
+# internet from inside the container.
+for v in http_proxy https_proxy ftp_proxy all_proxy no_proxy \
+         HTTP_PROXY HTTPS_PROXY NO_PROXY; do
+  [[ -n "${!v:-}" ]] && run_args+=(-e "${v}")
+done
 # NOTE: do NOT pass RK_* variables (e.g. RK_SDK_DIR) via -e. The vendor
 # device/rockchip/common/scripts/build.sh flags externally-set RK_* vars as
 # "custom environments" and blocks on an interactive `read -t 10`, which fails
