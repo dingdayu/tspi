@@ -30,6 +30,7 @@ RUN apt-get update \
         gcc-multilib g++-multilib \
         # kernel / dtc / kbuild deps
         bison flex bc libssl-dev libelf-dev libncurses-dev \
+        libgmp-dev libmpfr-dev libmpc-dev \
         device-tree-compiler \
         liblz4-tool lz4 zstd bzip2 unzip xz-utils cpio kmod \
         # rootfs / cross / qemu / chroot
