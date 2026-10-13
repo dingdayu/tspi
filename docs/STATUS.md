@@ -116,8 +116,9 @@ None.
 
 ### NEXT
 
-1. `make rootfs && make image` — One-KVM install + rootfs customization + image packaging.
-2. `make verify`.
+1. `make rootfs` — build the Debian rootfs and install One-KVM/overlay. **Requires
+   root** (see BLOCKED below).
+2. After rootfs customization: `make image` again, then `make verify`.
 
 ### Extraction & local sync (2026-10-13) — DONE
 
@@ -194,6 +195,33 @@ None.
 - FOLLOW-UP: `scripts/kernel/configure.sh` is effectively a no-op for this vendor
   flow (its `.config` edits are regenerated). It should be refactored to write the
   merged fragment (as done here) instead of editing `.config`.
+
+#### Image packaging (2026-10-13) — DONE (host-side)
+
+- `scripts/image/build.sh` → vendor `build.sh firmware` + `updateimg` (cached) →
+  `scripts/image/collect.sh`; `scripts/image/manifest.sh` → `dist/MANIFEST.txt` +
+  `dist/SHA256SUMS`.
+- `dist/`: `boot.img`(40M), `rootfs.img`(902M), `uboot.img`(4M),
+  `MiniLoaderAll.bin`(539K), `parameter.txt`, `update.img`(~1.0G),
+  `tspi-rk3566-user-v10-linux.dtb`; `boot.img`/DTB carry the peripheral-mode change.
+- NOTE: the packaged `rootfs.img` is the **buildroot** rootfs from the baseline
+  (`RK_ROOTFS_SYSTEM=buildroot`), not the project's customized Debian appliance
+  rootfs — see BLOCKED.
+
+### BLOCKED (root required) — Debian rootfs + One-KVM customization
+
+- `scripts/rootfs/build.sh` (default `ROOTFS_SYSTEM=debian`) drives the vendor
+  Debian build (`debian/mk-rootfs-bookworm.sh`, `check-debian.sh`, `post-debian.sh`,
+  `debian/mk-image.sh`), which use `sudo`/`debootstrap`/`chroot`/`mkfs.ext4`; then
+  the project's `unpack_image()` uses `mount -o loop`.
+- `scripts/rootfs/customize.sh` + `install-one-kvm.sh` then `chroot` into the
+  unpacked tree (with `qemu-aarch64-static`) to install packages, create the
+  maintenance account, enable SSH/NetworkManager/mDNS, mask vendor ADB, and extract
+  the pinned One-KVM `.deb`.
+- This environment has no root, no passwordless `sudo`, user namespaces are blocked
+  by seccomp, and no usable Docker daemon — so these steps cannot run here.
+- Resolution: run `make rootfs && make image` inside the builder container (needs a
+  working Docker daemon) or on a host with root plus `debootstrap`/`live-build`.
 
 ### Notes on removed tooling
 
