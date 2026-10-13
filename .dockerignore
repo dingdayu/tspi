@@ -1,0 +1,23 @@
+# Keep the Docker build context tiny. The repo is bind-mounted at runtime,
+# never COPY'd. This file only matters for `docker build ./builder`.
+sdk/
+build/
+dist/
+downloads/
+.repo/
+.omo/
+.pi/
+.codegraph/
+.git/
+*.tar
+*.tar.gz
+*.tgz
+*.xz
+*.img
+*.bin
+config/local.env
+config/build.env
+scripts/
+docs/
+patches/
+rootfs-overlay/
