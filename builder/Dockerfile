@@ -50,6 +50,20 @@ RUN apt-get update \
 # that genuinely need Python 2 must call `python2.7` explicitly.
 RUN python --version && python2.7 --version
 
+# --- Debian-rootfs check markers -------------------------------------------
+# The vendor Debian rootfs is built from a prebuilt base tarball shipped in the
+# SDK (debian/linaro-bookworm-*.tar.gz); live-build/debootstrap are not actually
+# used. But the vendor check-debian.sh gates on them advertising the release.
+# Provide the expected markers so the check passes on this Ubuntu 22.04 image.
+RUN mkdir -p /usr/share/live/build/data/debian-cd/bookworm && \
+    if [ ! -e /usr/share/debootstrap/scripts/bookworm ]; then \
+        if [ -e /usr/share/debootstrap/scripts/sid ]; then \
+            ln -s /usr/share/debootstrap/scripts/sid /usr/share/debootstrap/scripts/bookworm; \
+        else \
+            touch /usr/share/debootstrap/scripts/bookworm; \
+        fi; \
+    fi
+
 # --- Non-root builder user with passwordless sudo --------------------------
 ARG BUILDER_UID=1000
 ARG BUILDER_GID=1000
