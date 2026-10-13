@@ -38,8 +38,13 @@ fi
 if [[ "${1:-}" == "--" ]]; then
   shift
   [[ "$#" -gt 0 ]] || die "enter-builder.sh -- requires a command"
-  log_phase "Running in builder: $*"
-  exec "${engine}" "${run_args[@]}" "${image_ref}" "$@"
+  # The repo is bind-mounted at /work, but callers (e.g. the Makefile) pass host
+  # absolute paths. Rewrite any argument under PROJECT_ROOT to its /work path.
+  map_path() { local a="$1"; printf '%s' "${a/#${PROJECT_ROOT}/\/work}"; }
+  cmd=()
+  for a in "$@"; do cmd+=("$(map_path "$a")"); done
+  log_phase "Running in builder: ${cmd[*]}"
+  exec "${engine}" "${run_args[@]}" "${image_ref}" "${cmd[@]}"
 fi
 
 log_phase "Entering interactive builder shell (${image_ref})"
