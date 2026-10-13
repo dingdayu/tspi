@@ -34,9 +34,12 @@ DOWNLOADS_DIR="${PROJECT_ROOT}/downloads"
 BUILD_DIR="${PROJECT_ROOT}/build"
 LOGS_DIR="${BUILD_DIR}/logs"
 DIST_DIR="${PROJECT_ROOT}/dist"
-export CONFIG_DIR SCRIPTS_DIR LIB_DIR BUILDER_DIR PATCHES_DIR OVERLAY_DIR \
-  DOCS_DIR SDK_DIR SDK_VENDOR_DIR SDK_WORK_DIR DOWNLOADS_DIR BUILD_DIR \
-  LOGS_DIR DIST_DIR
+# NOTE: do NOT export these to the environment. Names like CONFIG_DIR and
+# BUILD_DIR are also Buildroot make variables (buildroot/Makefile sets
+# `CONFIG_DIR := $(O)`); an exported env value stays "exported" through make,
+# so Buildroot's override leaks into packages (e.g. libvpx computes
+# `--config=$(CONFIG_DIR)…`, producing a malformed path and empty RTCD headers).
+# Our scripts re-source this file, so in-shell is sufficient.
 
 # --- Terminal-aware logging ------------------------------------------------
 if [[ -t 2 ]] && command -v tput >/dev/null 2>&1 && [[ "$(tput colors 2>/dev/null || echo 0)" -ge 8 ]]; then
@@ -98,10 +101,14 @@ load_env() {
     fi
   done
   # Do NOT export generic variable names into the vendor build. They collide
-  # with vendor/glibc internals: glibc's `LINK.o = $(CC) $(LDFLAGS) $(TARGET_ARCH)`
-  # would append a bare "arm64" to the linker command line (ld: cannot find
-  # arm64). Keep them usable in-shell but unexported.
-  export -n TARGET_ARCH TARGET_SOC TARGET_BOARD KERNEL_FLAVOR SDK_NAME SDK_RELEASE 2>/dev/null || true
+  # with vendor/glibc/buildroot internals: glibc's `LINK.o = $(CC) $(LDFLAGS) $(TARGET_ARCH)`
+  # would append a bare "arm64" to the linker command line; Buildroot defines
+  # CONFIG_DIR/BUILD_DIR itself and an exported value leaks into packages (libvpx
+  # RTCD `--config=$(CONFIG_DIR)…`). Keep them usable in-shell but unexported.
+  export -n TARGET_ARCH TARGET_SOC TARGET_BOARD KERNEL_FLAVOR SDK_NAME SDK_RELEASE \
+    CONFIG_DIR BUILD_DIR SCRIPTS_DIR LIB_DIR BUILDER_DIR PATCHES_DIR OVERLAY_DIR \
+    DOCS_DIR SDK_DIR SDK_VENDOR_DIR SDK_WORK_DIR DOWNLOADS_DIR LOGS_DIR DIST_DIR \
+    2>/dev/null || true
 }
 
 # --- Container engine ------------------------------------------------------
