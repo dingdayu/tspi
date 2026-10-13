@@ -12,6 +12,22 @@ load_env
 LOG_FILE="${LOGS_DIR}/kernel-configure.log"
 REQ_FILE="${CONFIG_DIR}/kernel-required.config"
 KERNEL_CFG="${RK_KERNEL_CFG:-rockchip_linux_defconfig}"
+
+# Use the SDK's prebuilt aarch64 toolchain when available. The vendor tree ships
+# `aarch64-none-linux-gnu-gcc`, not the Debian-style `aarch64-linux-gnu-gcc`, so
+# the old default broke `make olddefconfig` ("C compiler ... not found").
+detect_cross_compile() {
+  local w tc
+  w="$(sdk_find_work_dir 2>/dev/null || true)"
+  [[ -n "${w}" ]] || return 1
+  tc="$(find "${w}/prebuilts/gcc/linux-x86/aarch64" -maxdepth 3 \
+        -name 'aarch64-none-linux-gnu-gcc' -print -quit 2>/dev/null || true)"
+  [[ -n "${tc}" ]] || return 1
+  printf '%s' "${tc%-gcc}-"
+}
+if [[ -z "${CROSS_COMPILE:-}" ]]; then
+  CROSS_COMPILE="$(detect_cross_compile || true)"
+fi
 CROSS_COMPILE="${CROSS_COMPILE:-aarch64-linux-gnu-}"
 
 apply_one() {
