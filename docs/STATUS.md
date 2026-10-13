@@ -116,9 +116,27 @@ None.
 
 ### NEXT
 
-1. `make sdk-extract` — the vendor `extract_sdk.sh` now has all parts available.
-2. `make sdk-sync`, then `make baseline`.
-3. `make patch && make kernel`; then `make rootfs && make image`.
+1. `make baseline` — prove the unmodified vendor toolchain. **Blocked on Docker**:
+   the daemon is not running in this environment (no `/var/run/docker.sock`, no
+   systemd), so run it host-side or start `dockerd` first.
+2. `make patch && make kernel`.
+3. `make rootfs && make image`.
+
+### Extraction & local sync (2026-10-13) — DONE
+
+- The SDK `.tar.xz` contains only `.repo/` (a repo mirror; 7364 tar entries);
+  the worktree is populated afterward by `repo sync -l` (State C → D).
+- Extracted streaming: `cat rk3566_linux_sdk_20260806.tar.xz.part.* | tar -xJf -
+  -C extracted_sdk`. This avoids the vendor `extract_sdk.sh` intermediate
+  `combined.tar` (whose peak usage — parts + 2×uncompressed — could exceed free
+  space).
+- Extracted contents verified: `sha256sum -c file_checksums.sha256` → **4147/4147
+  OK** (exit 0).
+- `sdk/work/tspi-linux-sdk` symlinked to the extracted tree; `repo sync -l -j16`
+  populated the worktree from local objects (no network); post-sync **State D**
+  (`device/rockchip`, `build.sh`, `kernel-6.1`, `.repo` all present).
+- Performed host-side because the builder container is unavailable; the Makefile
+  targets `sdk-extract`/`sdk-sync` wrap through `scripts/host/enter-builder.sh`.
 
 ### Notes on removed tooling
 
