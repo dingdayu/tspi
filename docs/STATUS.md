@@ -116,8 +116,8 @@ None.
 
 ### NEXT
 
-1. `make patch && make kernel` — DWC3 → peripheral; verify effective `.config`/DTB.
-2. `make rootfs && make image`; then `make verify`.
+1. `make rootfs && make image` — One-KVM install + rootfs customization + image packaging.
+2. `make verify`.
 
 ### Extraction & local sync (2026-10-13) — DONE
 
@@ -166,6 +166,34 @@ None.
   through `scripts/host/enter-builder.sh`) was not used; the equivalent vendor
   `./build.sh` was run directly. With a working Docker daemon, `make baseline`
   reproduces the documented container path.
+
+#### Kernel patch + config + verify (2026-10-13) — DONE (host-side)
+
+- Board DTS auto-detected as `tspi-rk3566-user-v10-linux.dts`; its DWC3 node was
+  `dr_mode = "otg"`. `scripts/kernel/patch.sh` appended the peripheral override and
+  recorded `patches/kernel/0001-tspi-dwc3-peripheral.patch`.
+- Config application: the vendor kernel build regenerates `.config` from the
+  board defconfig plus the merged fragment `arch/arm64/configs/rk3566.config`, so
+  `scripts/kernel/configure.sh` (which edits `.config`) is overwritten by the later
+  vendor step. The required symbols were therefore appended to that merged
+  fragment (idempotent, marked block) and recorded as
+  `patches/kernel/0002-tspi-required-kernel-config.patch`.
+- `config/kernel-required.config`: the DWC3 mode is a Kconfig **choice**
+  (`HOST` / `GADGET` / `DUAL_ROLE`); the file previously required both
+  `USB_DWC3_DUAL_ROLE` and `USB_DWC3_GADGET`, which is impossible. Kept
+  `CONFIG_USB_DWC3_DUAL_ROLE=y` (vendor default; builds gadget support) and the
+  DTS forces the device role at runtime.
+- `scripts/kernel/verify.sh` fixes:
+  1. `grep | head` under `set -o pipefail` aborted the whole check on the first
+     missing symbol; now it reports every symbol/mismatch.
+  2. the DTB check assumed labels are inlined by `dtc -I dtb -O dts`; it now
+     resolves the label via `__symbols__` and reads `dr_mode` with `fdtget`.
+- Result: `scripts/kernel/verify.sh` → **PASS** — all 15 required symbols present in
+  the effective `.config`, and the built DTB has `&usbdrd_dwc3`
+  (`/usbdrd/usb@fcc00000`) with `dr_mode = "peripheral"`.
+- FOLLOW-UP: `scripts/kernel/configure.sh` is effectively a no-op for this vendor
+  flow (its `.config` edits are regenerated). It should be refactored to write the
+  merged fragment (as done here) instead of editing `.config`.
 
 ### Notes on removed tooling
 
