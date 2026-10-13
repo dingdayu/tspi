@@ -1,12 +1,39 @@
-# tar 归档（buildroot_dl / ubuntu-base 等）
+# --- Secrets & local configuration (NEVER commit) ---
+config/local.env
+config/build.env
+*.pem
+*.key
+id_rsa
+id_ed25519
+
+# --- SDK intake & working trees (multi-GB) ---
+sdk/vendor/
+sdk/work/
+.repo/
 *.tar
 *.tar.gz
 *.tgz
 *.tar.bz2
 *.tar.xz
 
-# repo(1) 多仓工作区元数据（16GB，含嵌套 git 仓库）
-.repo/
+# --- Build state & deliverables ---
+build/
+downloads/
+dist/*.img
+dist/*.bin
+dist/*.deb
+dist/*.tar
+dist/*.upd
+dist/SHA256SUMS
+dist/MANIFEST.txt
 
-# 本地 agent 运行态
+# --- Logs / caches / agent runtime ---
+*.log
+.cache/
+.omo/
 .pi/
+.codegraph/
+
+# --- Editor / OS cruft ---
+.DS_Store
+*.swp
