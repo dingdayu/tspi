@@ -21,16 +21,18 @@ run_args=(run --privileged --rm
   -v "${PROJECT_ROOT}:/work"
   -w /work
   -e "RK_SDK_DIR=/work/sdk")
-# Share the host binfmt_misc registry only when it is a real mountpoint. A plain
-# directory under /proc cannot be bind-mounted (Docker errors with "cannot be
-# mounted because it is inside /proc"), and qemu-aarch64 may not be registered.
-if mountpoint -q /proc/sys/fs/binfmt_misc; then
-  run_args+=(-v /proc/sys/fs/binfmt_misc:/proc/sys/fs/binfmt_misc)
-else
-  log_warn "/proc/sys/fs/binfmt_misc is not a mountpoint; skipping the bind mount."
-  log_warn "For arm64 chroot (Debian rootfs) enable it on the host:"
-  log_warn "  sudo mount binfmt_misc -t binfmt_misc /proc/sys/fs/binfmt_misc"
-  log_warn "  sudo update-binfmts --enable qemu-aarch64"
+# binfmt_misc is intentionally NOT bind-mounted by default: newer runc rejects
+# mounting /proc/sys/fs/binfmt_misc into a container ("cannot be mounted because
+# it is inside /proc"). Register the arm64 interpreter on the HOST instead:
+#   docker run --privileged --rm tonistiigi/binfmt --install arm64
+# Set BUILDER_MOUNT_BINFMT=1 to opt back in (only if your runtime allows it).
+if [[ "${BUILDER_MOUNT_BINFMT:-0}" == "1" ]]; then
+  if mountpoint -q /proc/sys/fs/binfmt_misc; then
+    run_args+=(-v /proc/sys/fs/binfmt_misc:/proc/sys/fs/binfmt_misc)
+    log_info "binding host binfmt_misc into the builder (BUILDER_MOUNT_BINFMT=1)"
+  else
+    log_warn "BUILDER_MOUNT_BINFMT=1 but /proc/sys/fs/binfmt_misc is not a mountpoint; skipping"
+  fi
 fi
 
 if [[ "${1:-}" == "--" ]]; then
