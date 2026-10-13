@@ -223,6 +223,32 @@ None.
 - Resolution: run `make rootfs && make image` inside the builder container (needs a
   working Docker daemon) or on a host with root plus `debootstrap`/`live-build`.
 
+### Host / container build fixes (2026-10-13)
+
+Fixes discovered while running the documented pipeline inside the builder
+container (each committed separately):
+
+- `scripts/host/enter-builder.sh`
+  - do **not** bind-mount `/proc/sys/fs/binfmt_misc` (newer runc rejects it:
+    "cannot be mounted because it is inside /proc"); register arm64 on the host
+    instead (`docker run --privileged --rm tonistiigi/binfmt --install arm64`).
+    Opt back in with `BUILDER_MOUNT_BINFMT=1`.
+  - rewrite host `/…` paths under the project root to `/work/…` for the container.
+  - do **not** inject `RK_SDK_DIR` (the vendor `build.sh` treats external `RK_*`
+    vars as "custom environments" and blocks on `read -t 10`).
+- `builder/Dockerfile` — add packages the vendor checks need:
+  `debootstrap`, `libgmp-dev libmpfr-dev libmpc-dev`, `gettext` (msgmerge),
+  `patch`, `gperf`.
+- `scripts/lib/common.sh` — stop exporting our project variables into the vendor
+  build. Exported generic names collided with vendor internals:
+  `TARGET_ARCH` broke glibc (`LINK.o = $(CC) $(LDFLAGS) $(TARGET_ARCH)` →
+  `ld: cannot find arm64`), and `CONFIG_DIR`/`BUILD_DIR` leaked into Buildroot
+  (`CONFIG_DIR := $(O)`), breaking libvpx RTCD (`--config=$(CONFIG_DIR)…` →
+  malformed path → empty `*_rtcd.h`). They remain available in-shell.
+- If a stale Buildroot cache was produced by an earlier host-side run, delete
+  `buildroot/output/<config>` (or the affected package build dirs) so it rebuilds
+  cleanly in the container.
+
 ### Notes on removed tooling
 
 All ad-hoc download tooling created during this phase was removed at the user's
