@@ -33,7 +33,7 @@ RUN apt-get update \
         device-tree-compiler \
         liblz4-tool lz4 zstd bzip2 unzip xz-utils cpio kmod \
         # rootfs / cross / qemu / chroot
-        qemu-user-static binfmt-support fakeroot live-build \
+        qemu-user-static binfmt-support fakeroot live-build debootstrap \
         patchelf chrpath \
         # misc vendor-script deps
         python3 python3-pip python-is-python3 python2.7 \
