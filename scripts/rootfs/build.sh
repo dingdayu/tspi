@@ -61,6 +61,19 @@ ensure_debian_check_markers() {
     fi
   fi
   log_info "ensured Debian check markers for ${rel}"
+
+  # Privileged containers do not get /proc/sys/fs/binfmt_misc mounted, so the
+  # vendor check-debian.sh cannot see qemu-aarch64. Mount a fresh instance and
+  # register the in-image qemu-aarch64-static (idempotent).
+  if [[ ! -r /proc/sys/fs/binfmt_misc/qemu-aarch64 ]]; then
+    mkdir -p /proc/sys/fs/binfmt_misc 2>/dev/null || true
+    mountpoint -q /proc/sys/fs/binfmt_misc 2>/dev/null || \
+      mount -t binfmt_misc binfmt_misc /proc/sys/fs/binfmt_misc 2>/dev/null || true
+    if [[ -r /proc/sys/fs/binfmt_misc/register ]]; then
+      update-binfmts --enable qemu-aarch64 2>/dev/null || true
+    fi
+    log_info "binfmt_misc: qemu-aarch64 readable=$([[ -r /proc/sys/fs/binfmt_misc/qemu-aarch64 ]] && echo yes || echo no)"
+  fi
 }
 
 build_main() {
