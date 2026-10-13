@@ -24,6 +24,8 @@ dist/*.bin
 dist/*.deb
 dist/*.tar
 dist/*.upd
+dist/*.dtb
+dist/parameter.txt
 dist/SHA256SUMS
 dist/MANIFEST.txt
 
