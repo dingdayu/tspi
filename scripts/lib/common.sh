@@ -97,6 +97,11 @@ load_env() {
       set +a
     fi
   done
+  # Do NOT export generic variable names into the vendor build. They collide
+  # with vendor/glibc internals: glibc's `LINK.o = $(CC) $(LDFLAGS) $(TARGET_ARCH)`
+  # would append a bare "arm64" to the linker command line (ld: cannot find
+  # arm64). Keep them usable in-shell but unexported.
+  export -n TARGET_ARCH TARGET_SOC TARGET_BOARD KERNEL_FLAVOR SDK_NAME SDK_RELEASE 2>/dev/null || true
 }
 
 # --- Container engine ------------------------------------------------------
