@@ -1,0 +1,13 @@
+diff --git a/arch/arm64/boot/dts/rockchip/tspi-rk3566-user-v10-linux.dts b/arch/arm64/boot/dts/rockchip/tspi-rk3566-user-v10-linux.dts
+index 59b01e1c6d00..9eb614ab0d21 100755
+--- a/arch/arm64/boot/dts/rockchip/tspi-rk3566-user-v10-linux.dts
++++ b/arch/arm64/boot/dts/rockchip/tspi-rk3566-user-v10-linux.dts
+@@ -209,3 +209,8 @@ ir_key1 {
+ 			<0xe6	KEY_0>;
+ 	};
+ };
++
++/* taishanpi-kvm: Type-C DWC3 forced to peripheral mode */
++&usbdrd_dwc3 {
++	dr_mode = "peripheral";
++};
