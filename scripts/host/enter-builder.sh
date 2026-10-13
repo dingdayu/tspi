@@ -19,8 +19,11 @@ fi
 
 run_args=(run --privileged --rm
   -v "${PROJECT_ROOT}:/work"
-  -w /work
-  -e "RK_SDK_DIR=/work/sdk")
+  -w /work)
+# NOTE: do NOT pass RK_* variables (e.g. RK_SDK_DIR) via -e. The vendor
+# device/rockchip/common/scripts/build.sh flags externally-set RK_* vars as
+# "custom environments" and blocks on an interactive `read -t 10`, which fails
+# in a non-TTY run. The SDK auto-detects its own paths.
 # binfmt_misc is intentionally NOT bind-mounted by default: newer runc rejects
 # mounting /proc/sys/fs/binfmt_misc into a container ("cannot be mounted because
 # it is inside /proc"). Register the arm64 interpreter on the HOST instead:
