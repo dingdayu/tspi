@@ -150,6 +150,10 @@ None.
   (`flex`, `dtc`, `bc`, …) and cannot be installed without root.
 - Resolution: start a working Docker daemon (or provide a host with the vendor
   build dependencies / a privileged builder) and re-run `make baseline`.
+- Rootless Docker was attempted and is **not possible** here: user namespaces are
+  blocked by the container seccomp filter (`unshare -Ur` / `unshare(CLONE_NEWUSER)`
+  → `EPERM`; `Seccomp: 2`), and `rootlesskit`/`slirp4netns`/`fuse-overlayfs`/
+  `newuidmap` are absent.
 
 ### Notes on removed tooling
 
