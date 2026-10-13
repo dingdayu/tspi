@@ -39,7 +39,7 @@ RUN apt-get update \
         # misc vendor-script deps
         python3 python3-pip python-is-python3 python2.7 \
         file time xxd whiptail expect sudo locales \
-        gawk texinfo diffstat gettext patch \
+        gawk texinfo diffstat gettext patch gperf \
         curl wget openssh-client \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
