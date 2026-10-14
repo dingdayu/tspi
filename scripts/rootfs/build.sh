@@ -133,7 +133,19 @@ build_main() {
     fi
   fi
 
-  if [[ -z "${ROOTFS_DIR:-}" ]]; then
+  if [[ "${ROOTFS_CUSTOMIZE_ONLY:-0}" == "1" ]]; then
+    [[ -d "${STAGE_DIR}" ]] || die "customize-only requested but ${STAGE_DIR#${PROJECT_ROOT}/} is missing; run 'make rootfs' first"
+    ROOTFS_DIR="${STAGE_DIR}"
+    local existing_img
+    existing_img="$(find_rootfs_image "${work}")"
+    if [[ -n "${existing_img}" ]]; then
+      VENDOR_ROOTFS_IMG="$(realpath "${existing_img}")"
+      log_info "customize-only: repack target ${VENDOR_ROOTFS_IMG#${PROJECT_ROOT}/}"
+    else
+      log_warn "customize-only: no vendor rootfs image found; will not repack"
+    fi
+    log_info "customize-only: reusing ${ROOTFS_DIR#${PROJECT_ROOT}/}"
+  elif [[ -z "${ROOTFS_DIR:-}" ]]; then
     if [[ -n "${ROOTFS_BUILD_CMD:-}" ]]; then
       log_info "using ROOTFS_BUILD_CMD: ${ROOTFS_BUILD_CMD}"
       ( cd "${work}" && run_logged "${LOG_FILE}" bash -c "${ROOTFS_BUILD_CMD}" )

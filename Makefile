@@ -19,7 +19,7 @@ HOST := $(PROJECT_ROOT)/scripts
 .PHONY: help all doctor builder shell \
         sdk-check sdk-extract sdk-sync baseline \
         kernel-detect patch kernel-configure kernel kernel-verify \
-        rootfs rootfs-verify \
+        rootfs rootfs-customize rootfs-verify \
         image image-manifest \
         verify target-smoke clean
 
@@ -75,6 +75,9 @@ kernel-verify: ## Verify effective kernel .config / DTB DWC3 mode
 
 rootfs: ## Build + customize the Debian appliance rootfs
 	@$(IN_BUILDER) $(SCRIPTS)/rootfs/build.sh
+
+rootfs-customize: ## Re-run only the rootfs customization (existing unpacked tree) + repack
+	@$(IN_BUILDER) env ROOTFS_CUSTOMIZE_ONLY=1 $(SCRIPTS)/rootfs/build.sh
 
 rootfs-verify: ## Verify rootfs contents (ssh, NetworkManager, one-kvm, no docker)
 	@$(HOST)/rootfs/verify.sh
