@@ -1,7 +1,9 @@
 # Implementation Status
 
-Last updated: 2026-09-22. Repository initialization complete; build phases are
-SDK-gated (State A).
+Last updated: 2026-10-14. Full pipeline completed inside the builder container:
+the vendor **Debian** appliance rootfs was built, customized (kvm account, SSH,
+NetworkManager, One-KVM), repacked, and packaged — `dist/update.img` and
+`dist/rootfs.img` now carry the customized rootfs. `make verify` → **PASS**.
 
 ## DONE
 
@@ -88,7 +90,7 @@ None. All SDK-independent work is complete.
 ## SDK download (2026-09-23 → 2026-10-13) — DONE
 
 Reception directory (absolute):
-`/home/<redacted-wifi_psk>/orca/workspaces/tspi/init/sdk/vendor/tspi_1m_linux_kernel6.1_sdk_20260807/`
+`<project>/sdk/vendor/tspi_1m_linux_kernel6.1_sdk_20260807/`
 
 ### DONE
 
@@ -257,4 +259,66 @@ request after the SDK was received and verified: the reusable
 resolve-retry loop, the generated wget script, and all manifests/logs/partial
 shards. No signed URLs remain anywhere in the repository. `build/` now contains
 only `build-builder.log` and `sdk-inspection.txt`.
+
+---
+
+## Docker container build completion (2026-10-14) — DONE
+
+The pipeline was run end-to-end by the user inside the `taishanpi-kvm-builder`
+container, with the assistant fixing each blocker as it surfaced.
+
+### DONE
+
+- **Kernel**: DWC3 forced to `dr_mode = "peripheral"`; effective `.config` +
+  built DTB verified (`make kernel`).
+- **Debian rootfs** (`make rootfs`, vendor `build.sh rootfs`): the vendor
+  `check-debian.sh` gate was satisfied, and the SDK's prebuilt
+  `debian/linaro-bookworm-*.tar.gz` was extracted + chrooted.
+- **Customization** (`scripts/rootfs/customize.sh`): `openssh-server`,
+  `network-manager` etc. installed; `kvm` account created (uid 1001, primary
+  group the vendor's existing `kvm` group, gid 103) and added to
+  `sudo,video,input,plugdev,audio`; Wi-Fi station profile (0600); mDNS/hostname
+  `taishankvm`; ADB gadget masked; `libcomposite` in `modules-load.d`; pinned
+  One-KVM `.deb` extracted + service enabled.
+- **Repack**: the customized tree is repacked with `mkfs.ext4 -d` back into
+  `debian/linaro-rootfs.img` (new step in `scripts/rootfs/build.sh`), so the
+  vendor `firmware`/`updateimg` packaging uses the appliance rootfs.
+- **Image** (`make image` → `make image-manifest`): vendor `firmware` +
+  `updateimg` succeeded; artifacts collected into `dist/`
+  (`boot.img`, `rootfs.img` ~4.99G, `uboot.img`, `MiniLoaderAll.bin`,
+  `parameter.txt`, `update.img`, `tspi-rk3566-user-v10-linux.dtb`,
+  `MANIFEST.txt`, `SHA256SUMS`).
+- **Verification**: `make rootfs-verify` → PASS; `make verify` → PASS.
+  Confirmed in `dist/rootfs.img` via `debugfs`: `kvm` in `/etc/passwd` and in the
+  `sudo` group, `one-kvm.service` enabled, hostname `taishankvm`.
+
+### Container-specific fixes added this phase (each committed)
+
+- `scripts/rootfs/build.sh`: create vendor `check-debian.sh` markers
+  (live-build/debootstrap `bookworm`) at runtime; mount `binfmt_misc` +
+  `update-binfmts --enable qemu-aarch64`; add a passwd entry for the SDK owner
+  uid so the vendor `sudo -u '#<uid>'` (kernel-helper) resolves; realign
+  `external/rkwifibt` ownership to `RK_OWNER_UID`; repack the customized rootfs.
+  Added `ROOTFS_CUSTOMIZE_ONLY=1` (make target `rootfs-customize`) to re-run only
+  the customization + repack.
+- `scripts/kernel/configure.sh`: auto-detect the SDK prebuilt
+  `aarch64-none-linux-gnu-` toolchain.
+- `scripts/rootfs/customize.sh`: actually call `chroot_setup`; robust
+  `create_user` (reuse the existing `kvm` group, de-duplicate, edit `/etc/group`
+  directly for supplementary groups, direct-write fallback for the account).
+- `builder/Dockerfile`: live-build/debootstrap `bookworm` markers.
+
+### NEXT
+
+1. Flash manually per `docs/FLASHING.md` (assistant does not touch block
+   devices). Prefer `dist/update.img` with `RKDevTool` / `upgrade_tool`.
+2. On the board: `sudo bash scripts/verify/target-smoke.sh` to check SSH, `wlan0`,
+   `/sys/class/udc`, UVC capture, and One-KVM service; confirm ADB is not holding
+   the UDC.
+3. Set real Wi-Fi / recovery-AP passphrases in `config/local.env` (current values
+   look like placeholders) and rebuild if a custom-network image is desired.
+
+> Note: an earlier `docs/STATUS.md` revision contained a build path whose
+> username matched the configured PSK, tripping the secrets scan. The value was
+> redacted; rotate the Wi-Fi/recovery PSKs if this tree is ever pushed.
 
