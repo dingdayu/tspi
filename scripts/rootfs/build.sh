@@ -90,6 +90,19 @@ build_main() {
   local build_sh="${work}/build.sh"
   require_file "${build_sh}"
 
+  # The vendor's wifibt post-hook (scripts/post-wifibt.sh) refuses to run if any
+  # file under external/rkwifibt is not owned by RK_OWNER_UID (the SDK owner).
+  # Root container builds leave root-owned .o/.ko artifacts there, so realign
+  # ownership to the SDK owner before invoking the vendor build.
+  local sdk_real owner_uid
+  sdk_real="$(realpath "${work}" 2>/dev/null || true)"
+  owner_uid="$(stat -c %u "${sdk_real}" 2>/dev/null || echo 0)"
+  if [[ "${owner_uid}" -ne 0 && -d "${sdk_real}/external/rkwifibt" ]]; then
+    log_info "aligning external/rkwifibt ownership to uid ${owner_uid}"
+    chown -R "${owner_uid}:${owner_uid}" "${sdk_real}/external/rkwifibt" 2>/dev/null || \
+      log_warn "could not fully realign external/rkwifibt ownership"
+  fi
+
   if [[ -z "${ROOTFS_DIR:-}" ]]; then
     if [[ -n "${ROOTFS_BUILD_CMD:-}" ]]; then
       log_info "using ROOTFS_BUILD_CMD: ${ROOTFS_BUILD_CMD}"
