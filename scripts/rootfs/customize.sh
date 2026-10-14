@@ -69,10 +69,46 @@ create_user() {
   log_phase "Creating maintenance account ${TARGET_USERNAME}"
   if chroot "${ROOTFS_DIR}" /bin/sh -c "id '${TARGET_USERNAME}' >/dev/null 2>&1"; then
     log_info "user already exists"
-  else
-    chroot "${ROOTFS_DIR}" useradd -m -s /bin/bash -G sudo,video,input,plugdev,audio "${TARGET_USERNAME}" \
-      || log_warn "useradd failed; create ${TARGET_USERNAME} via the vendor rootfs step"
+    chroot "${ROOTFS_DIR}" passwd -l "${TARGET_USERNAME}" >/dev/null 2>&1 || true
+    return 0
   fi
+
+  # Only pass supplementary groups that actually exist in the rootfs; useradd
+  # otherwise fails and (previously) the error was swallowed.
+  local g groups=""
+  for g in sudo video input plugdev audio; do
+    if chroot "${ROOTFS_DIR}" getent group "${g}" >/dev/null 2>&1; then
+      groups="${groups:+${groups},}${g}"
+    fi
+  done
+  local -a args=(-m -s /bin/bash)
+  [[ -n "${groups}" ]] && args+=(-G "${groups}")
+
+  if chroot "${ROOTFS_DIR}" useradd "${args[@]}" "${TARGET_USERNAME}"; then
+    log_info "created ${TARGET_USERNAME} via useradd${groups:+ (groups: ${groups})}"
+  else
+    log_warn "useradd failed; creating ${TARGET_USERNAME} directly in /etc/{passwd,shadow,group}"
+    local uid gid
+    uid="$(awk -F: '$3>=1000 && $3<60000 {print $3}' "${ROOTFS_DIR}/etc/passwd" | sort -n | tail -1)"
+    uid="${uid:-1000}"; uid=$((uid + 1)); gid="${uid}"
+    printf '%s:x:%s:\n' "${TARGET_USERNAME}" "${gid}" >>"${ROOTFS_DIR}/etc/group"
+    printf '%s:x:%s:%s::/home/%s:/bin/bash\n' \
+      "${TARGET_USERNAME}" "${uid}" "${gid}" "${TARGET_USERNAME}" >>"${ROOTFS_DIR}/etc/passwd"
+    printf '%s:!:19000:0:99999:7:::\n' "${TARGET_USERNAME}" >>"${ROOTFS_DIR}/etc/shadow"
+    mkdir -p "${ROOTFS_DIR}/home/${TARGET_USERNAME}"
+    if [[ -d "${ROOTFS_DIR}/etc/skel" ]]; then
+      cp -a "${ROOTFS_DIR}/etc/skel/." "${ROOTFS_DIR}/home/${TARGET_USERNAME}/" 2>/dev/null || true
+    fi
+    chown -R "${uid}:${gid}" "${ROOTFS_DIR}/home/${TARGET_USERNAME}"
+    log_info "created ${TARGET_USERNAME} (uid ${uid}, gid ${gid})"
+  fi
+
+  # Add to supplementary groups (works whether useradd succeeded or not).
+  for g in sudo video input plugdev audio; do
+    chroot "${ROOTFS_DIR}" getent group "${g}" >/dev/null 2>&1 || continue
+    chroot "${ROOTFS_DIR}" gpasswd -a "${TARGET_USERNAME}" "${g}" >/dev/null 2>&1 || \
+      log_warn "could not add ${TARGET_USERNAME} to group ${g}"
+  done
   chroot "${ROOTFS_DIR}" passwd -l "${TARGET_USERNAME}" >/dev/null 2>&1 || true
 }
 
@@ -189,6 +225,7 @@ customize_main() {
   log_phase "Rootfs customization"
   ensure_build_dirs
   require_cmd bash
+  chroot_setup
   install_packages
   apply_overlay
   create_user

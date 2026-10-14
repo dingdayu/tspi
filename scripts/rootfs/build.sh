@@ -76,6 +76,22 @@ ensure_debian_check_markers() {
   fi
 }
 
+# Repack a customized rootfs tree back into an ext4 image so the vendor
+# firmware/updateimg packaging picks up our changes (mirrors vendor mk-image.sh:
+# `mkfs.ext4 -d`). The image is sized from the apparent tree size plus slack.
+repack_image() {
+  local src="$1" img="$2"
+  [[ "$(id -u)" -eq 0 ]] || die "repacking ${img} requires root (mkfs.ext4); run inside the builder"
+  require_cmd mkfs.ext4 du find
+  local size_mb
+  size_mb=$(( $(du --apparent-size -sm "${src}" | cut -f1) \
+             + $(find "${src}" | wc -l) * 4 / 1024 + 64 ))
+  size_mb=$(( size_mb * 110 / 100 ))
+  log_info "repacking customized rootfs -> ${img#${PROJECT_ROOT}/} (${size_mb}M)"
+  rm -f "${img}"
+  mkfs.ext4 -q -d "${src}" "${img}" "${size_mb}M" || die "mkfs.ext4 repack failed for ${img}"
+}
+
 build_main() {
   log_phase "Rootfs build (${ROOTFS_SYSTEM})"
   ensure_build_dirs
@@ -99,6 +115,7 @@ build_main() {
   # (scripts/kernel-helper); sudo needs a passwd entry for that uid, which the
   # host uid typically has no match for inside the container. Add one.
   local sdk_real owner_uid owner_gid
+  local VENDOR_ROOTFS_IMG=""
   sdk_real="$(realpath "${work}" 2>/dev/null || true)"
   owner_uid="$(stat -c %u "${sdk_real}" 2>/dev/null || echo 0)"
   owner_gid="$(stat -c %g "${sdk_real}" 2>/dev/null || echo "${owner_uid}")"
@@ -131,6 +148,7 @@ build_main() {
       die "no rootfs image found after the vendor build; set ROOTFS_DIR to an unpacked tree or ROOTFS_BUILD_CMD explicitly"
     fi
     log_info "rootfs image: ${img#${PROJECT_ROOT}/}"
+    VENDOR_ROOTFS_IMG="$(realpath "${img}")"
     ROOTFS_DIR="${STAGE_DIR}"
     unpack_image "${img}" "${ROOTFS_DIR}"
   else
@@ -139,6 +157,14 @@ build_main() {
 
   export ROOTFS_DIR
   bash "${SCRIPTS_DIR}/rootfs/customize.sh"
+
+  # Write the customized tree back into the vendor image so `make image`
+  # (vendor firmware/updateimg) packages the appliance rootfs, not the
+  # pristine vendor one.
+  if [[ -n "${VENDOR_ROOTFS_IMG:-}" ]]; then
+    repack_image "${ROOTFS_DIR}" "${VENDOR_ROOTFS_IMG}"
+  fi
+
   log_info "rootfs build + customization complete; log: ${LOG_FILE#${PROJECT_ROOT}/}"
 }
 
