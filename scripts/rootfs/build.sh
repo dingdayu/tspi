@@ -94,13 +94,26 @@ build_main() {
   # file under external/rkwifibt is not owned by RK_OWNER_UID (the SDK owner).
   # Root container builds leave root-owned .o/.ko artifacts there, so realign
   # ownership to the SDK owner before invoking the vendor build.
-  local sdk_real owner_uid
+  #
+  # Also, the vendor wraps module builds as `sudo -u #$RK_OWNER_UID`
+  # (scripts/kernel-helper); sudo needs a passwd entry for that uid, which the
+  # host uid typically has no match for inside the container. Add one.
+  local sdk_real owner_uid owner_gid
   sdk_real="$(realpath "${work}" 2>/dev/null || true)"
   owner_uid="$(stat -c %u "${sdk_real}" 2>/dev/null || echo 0)"
-  if [[ "${owner_uid}" -ne 0 && -d "${sdk_real}/external/rkwifibt" ]]; then
-    log_info "aligning external/rkwifibt ownership to uid ${owner_uid}"
-    chown -R "${owner_uid}:${owner_uid}" "${sdk_real}/external/rkwifibt" 2>/dev/null || \
-      log_warn "could not fully realign external/rkwifibt ownership"
+  owner_gid="$(stat -c %g "${sdk_real}" 2>/dev/null || echo "${owner_uid}")"
+  if [[ "${owner_uid}" -ne 0 ]]; then
+    if ! getent passwd "${owner_uid}" >/dev/null 2>&1; then
+      getent group "${owner_gid}" >/dev/null 2>&1 || \
+        echo "kvmowner:x:${owner_gid}:" >> /etc/group
+      echo "kvmowner:x:${owner_uid}:${owner_gid}:kvm owner:/tmp:/bin/sh" >> /etc/passwd
+      log_info "added passwd entry kvmowner (uid ${owner_uid}, gid ${owner_gid})"
+    fi
+    if [[ -d "${sdk_real}/external/rkwifibt" ]]; then
+      log_info "aligning external/rkwifibt ownership to uid ${owner_uid}"
+      chown -R "${owner_uid}:${owner_gid}" "${sdk_real}/external/rkwifibt" 2>/dev/null || \
+        log_warn "could not fully realign external/rkwifibt ownership"
+    fi
   fi
 
   if [[ -z "${ROOTFS_DIR:-}" ]]; then
