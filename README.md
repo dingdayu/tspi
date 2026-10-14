@@ -16,9 +16,9 @@ The target is a **KVM appliance**, not a general-purpose server:
 - UART documented as the emergency console.
 - Vendor ADB USB gadget disabled by default.
 
-`AGENTS.md` is the authoritative project contract. `OMP_PROJECT_PROMPT.md`
-describes the intended implementation workflow. This README is the quick
-happy path.
+`AGENTS.md` is the authoritative project contract and also carries the merged
+agent bootstrap / implementation prompt (§24). This README is the quick happy
+path.
 
 ## Status
 
