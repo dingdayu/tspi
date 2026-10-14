@@ -88,7 +88,7 @@ None. All SDK-independent work is complete.
 ## SDK download (2026-09-23 → 2026-10-13) — DONE
 
 Reception directory (absolute):
-`/home/dingxiaoyu/orca/workspaces/tspi/init/sdk/vendor/tspi_1m_linux_kernel6.1_sdk_20260807/`
+`/home/<redacted-wifi_psk>/orca/workspaces/tspi/init/sdk/vendor/tspi_1m_linux_kernel6.1_sdk_20260807/`
 
 ### DONE
 
