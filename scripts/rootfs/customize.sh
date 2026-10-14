@@ -65,50 +65,86 @@ install_packages() {
   fi
 }
 
+# Append a user to a group's member list in /etc/group (host-side text edit, so
+# it works regardless of chroot/gpasswd availability and never duplicates).
+add_user_to_group() {
+  local grp="$1" usr="$2"
+  awk -F: -v OFS=: -v g="${grp}" -v u="${usr}" '
+    $1==g {
+      if ($4=="") { $4=u }
+      else if (index(","$4",", ","u",")==0) { $4=$4 "," u }
+    }
+    { print }
+  ' "${ROOTFS_DIR}/etc/group" >"${ROOTFS_DIR}/etc/group.tmp" && \
+    mv "${ROOTFS_DIR}/etc/group.tmp" "${ROOTFS_DIR}/etc/group"
+}
+
 create_user() {
   log_phase "Creating maintenance account ${TARGET_USERNAME}"
-  if chroot "${ROOTFS_DIR}" /bin/sh -c "id '${TARGET_USERNAME}' >/dev/null 2>&1"; then
+  local group_file="${ROOTFS_DIR}/etc/group"
+  local passwd_file="${ROOTFS_DIR}/etc/passwd"
+  local shadow_file="${ROOTFS_DIR}/etc/shadow"
+
+  # Collapse duplicate group entries for the target name (an earlier fallback
+  # may have appended a second one), keeping the first.
+  awk -F: -v OFS=: -v g="${TARGET_USERNAME}" '
+    $1==g { n++; if (n>1) next } { print }
+  ' "${group_file}" >"${group_file}.tmp" && mv "${group_file}.tmp" "${group_file}"
+
+  # Reuse a pre-existing group with the target name as the primary group.
+  local gid groups="" g
+  gid="$(awk -F: -v g="${TARGET_USERNAME}" '$1==g { print $3; exit }' "${group_file}")"
+  for g in sudo video input plugdev audio; do
+    grep -q "^${g}:" "${group_file}" && groups="${groups:+${groups},}${g}"
+  done
+
+  if grep -q "^${TARGET_USERNAME}:" "${passwd_file}" 2>/dev/null; then
     log_info "user already exists"
-    chroot "${ROOTFS_DIR}" passwd -l "${TARGET_USERNAME}" >/dev/null 2>&1 || true
-    return 0
-  fi
-
-  # Only pass supplementary groups that actually exist in the rootfs; useradd
-  # otherwise fails and (previously) the error was swallowed.
-  local g groups=""
-  for g in sudo video input plugdev audio; do
-    if chroot "${ROOTFS_DIR}" getent group "${g}" >/dev/null 2>&1; then
-      groups="${groups:+${groups},}${g}"
+    if [[ -n "${gid}" ]]; then
+      awk -F: -v OFS=: -v u="${TARGET_USERNAME}" -v g="${gid}" \
+        '$1==u { $4=g } { print }' "${passwd_file}" >"${passwd_file}.tmp" && \
+        mv "${passwd_file}.tmp" "${passwd_file}"
     fi
-  done
-  local -a args=(-m -s /bin/bash)
-  [[ -n "${groups}" ]] && args+=(-G "${groups}")
-
-  if chroot "${ROOTFS_DIR}" useradd "${args[@]}" "${TARGET_USERNAME}"; then
-    log_info "created ${TARGET_USERNAME} via useradd${groups:+ (groups: ${groups})}"
   else
-    log_warn "useradd failed; creating ${TARGET_USERNAME} directly in /etc/{passwd,shadow,group}"
-    local uid gid
-    uid="$(awk -F: '$3>=1000 && $3<60000 {print $3}' "${ROOTFS_DIR}/etc/passwd" | sort -n | tail -1)"
-    uid="${uid:-1000}"; uid=$((uid + 1)); gid="${uid}"
-    printf '%s:x:%s:\n' "${TARGET_USERNAME}" "${gid}" >>"${ROOTFS_DIR}/etc/group"
-    printf '%s:x:%s:%s::/home/%s:/bin/bash\n' \
-      "${TARGET_USERNAME}" "${uid}" "${gid}" "${TARGET_USERNAME}" >>"${ROOTFS_DIR}/etc/passwd"
-    printf '%s:!:19000:0:99999:7:::\n' "${TARGET_USERNAME}" >>"${ROOTFS_DIR}/etc/shadow"
-    mkdir -p "${ROOTFS_DIR}/home/${TARGET_USERNAME}"
-    if [[ -d "${ROOTFS_DIR}/etc/skel" ]]; then
-      cp -a "${ROOTFS_DIR}/etc/skel/." "${ROOTFS_DIR}/home/${TARGET_USERNAME}/" 2>/dev/null || true
+    local -a args=(-m -s /bin/bash)
+    [[ -n "${gid}" ]] && args+=(-g "${gid}")
+    [[ -n "${groups}" ]] && args+=(-G "${groups}")
+    if chroot "${ROOTFS_DIR}" useradd "${args[@]}" "${TARGET_USERNAME}"; then
+      log_info "created ${TARGET_USERNAME} via useradd${groups:+ (groups: ${groups})}"
+    else
+      log_warn "useradd failed; creating ${TARGET_USERNAME} directly in /etc/{passwd,shadow,group}"
+      local uid
+      uid="$(awk -F: '$3>=1000 && $3<60000 {print $3}' "${passwd_file}" | sort -n | tail -1)"
+      uid="${uid:-1000}"; uid=$((uid + 1))
+      if [[ -z "${gid}" ]]; then
+        gid="${uid}"
+        printf '%s:x:%s:\n' "${TARGET_USERNAME}" "${gid}" >>"${group_file}"
+      fi
+      printf '%s:x:%s:%s::/home/%s:/bin/bash\n' \
+        "${TARGET_USERNAME}" "${uid}" "${gid}" "${TARGET_USERNAME}" >>"${passwd_file}"
+      printf '%s:!:19000:0:99999:7:::\n' "${TARGET_USERNAME}" >>"${shadow_file}"
+      mkdir -p "${ROOTFS_DIR}/home/${TARGET_USERNAME}"
+      if [[ -d "${ROOTFS_DIR}/etc/skel" ]]; then
+        cp -a "${ROOTFS_DIR}/etc/skel/." "${ROOTFS_DIR}/home/${TARGET_USERNAME}/" 2>/dev/null || true
+      fi
+      log_info "created ${TARGET_USERNAME} (uid ${uid}, gid ${gid})"
     fi
-    chown -R "${uid}:${gid}" "${ROOTFS_DIR}/home/${TARGET_USERNAME}"
-    log_info "created ${TARGET_USERNAME} (uid ${uid}, gid ${gid})"
   fi
 
-  # Add to supplementary groups (works whether useradd succeeded or not).
+  # Supplementary group membership directly in /etc/group.
   for g in sudo video input plugdev audio; do
-    chroot "${ROOTFS_DIR}" getent group "${g}" >/dev/null 2>&1 || continue
-    chroot "${ROOTFS_DIR}" gpasswd -a "${TARGET_USERNAME}" "${g}" >/dev/null 2>&1 || \
-      log_warn "could not add ${TARGET_USERNAME} to group ${g}"
+    grep -q "^${g}:" "${group_file}" || continue
+    add_user_to_group "${g}" "${TARGET_USERNAME}"
   done
+
+  # Align home ownership with the account's uid:gid.
+  local puid pgid
+  puid="$(awk -F: -v u="${TARGET_USERNAME}" '$1==u { print $3; exit }' "${passwd_file}")"
+  pgid="$(awk -F: -v u="${TARGET_USERNAME}" '$1==u { print $4; exit }' "${passwd_file}")"
+  if [[ -n "${puid}" && -n "${pgid}" && -d "${ROOTFS_DIR}/home/${TARGET_USERNAME}" ]]; then
+    chown -R "${puid}:${pgid}" "${ROOTFS_DIR}/home/${TARGET_USERNAME}"
+  fi
+
   chroot "${ROOTFS_DIR}" passwd -l "${TARGET_USERNAME}" >/dev/null 2>&1 || true
 }
 
