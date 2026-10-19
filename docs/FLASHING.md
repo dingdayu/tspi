@@ -81,3 +81,7 @@ Confirm the tool version and flags before use.
   identified.
 - Tool names and flags (`rkdeveloptool` vs `upgrade_tool`) differ between
   versions; confirm against your installed tool's help output.
+- The flashing tools (`RKDevTool`, `DriverAssistant`, `SDDiskTool`) are
+   available from the LCKFB TaishanPi
+   [download center](https://wiki.lckfb.com/zh-hans/tspi-rk3566/download-center.html)
+   (第07章.【立创·泰山派】开发工具).

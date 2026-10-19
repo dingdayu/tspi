@@ -2,6 +2,18 @@
 
 This directory holds the vendor SDK. Its contents are **gitignored**.
 
+## Where to download the SDK
+
+The official source is the LCKFB TaishanPi download center:
+
+- <https://wiki.lckfb.com/zh-hans/tspi-rk3566/download-center.html>
+
+The page hosts the SDK packages (Linux/Android, repo and non-repo variants),
+system images, and flashing/development tools (`DriverAssistant`, `RKDevTool`,
+`SDDiskTool`, CH340 serial driver) via Baidu Netdisk. Our target is the
+Linux 6.1 SDK `tspi_1m_linux_kernel6.1_sdk_20260807` (or the latest 6.1
+release the vendor provides).
+
 ## Placement (State A → B)
 
 Download the multi-part SDK and place the extracted folder here:

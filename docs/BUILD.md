@@ -89,6 +89,14 @@ Directory names can be overridden in `config/versions.env` via
 
 The SDK intake and work trees are gitignored. Do not commit them.
 
+Download source: the LCKFB TaishanPi
+[download center](https://wiki.lckfb.com/zh-hans/tspi-rk3566/download-center.html)
+(Baidu Netdisk). It hosts the Linux/Android SDK packages, system images, and the
+flashing tools (`RKDevTool`, `DriverAssistant`, `SDDiskTool`) referenced in
+[`FLASHING.md`](FLASHING.md). Our target is the Linux 6.1 SDK
+`tspi_1m_linux_kernel6.1_sdk_20260807`, or the latest 6.1 release the vendor
+provides.
+
 ---
 
 ## 4. SDK lifecycle states

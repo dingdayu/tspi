@@ -71,3 +71,6 @@ rkdeveloptool rd                       # 复位
 - 绝不写主机的原始块设备。
 - 绝不对未明确识别的设备执行 Rockchip 烧录。
 - 工具名与参数（`rkdeveloptool` 与 `upgrade_tool`）因版本而异；以你安装的工具帮助输出为准。
+- 烧录工具（`RKDevTool`、`DriverAssistant`、`SDDiskTool`）可从立创泰山派官方
+   [资料下载中心](https://wiki.lckfb.com/zh-hans/tspi-rk3566/download-center.html)
+   获取（第07章.【立创·泰山派】开发工具）。

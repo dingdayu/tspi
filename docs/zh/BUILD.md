@@ -75,6 +75,13 @@ sdk/vendor/tspi_1m_linux_kernel6.1_sdk_20260807/
 
 SDK 收纳目录和工作树均被 gitignore，不要提交。
 
+下载来源：立创泰山派官方
+[资料下载中心](https://wiki.lckfb.com/zh-hans/tspi-rk3566/download-center.html)
+（百度网盘）。其中托管 Linux/Android SDK 包、系统镜像，以及
+[`FLASHING.md`](FLASHING.md) 引用的烧录工具（`RKDevTool`、`DriverAssistant`、
+`SDDiskTool`）。本项目目标是 Linux 6.1 SDK
+`tspi_1m_linux_kernel6.1_sdk_20260807`（或厂商提供的最新 6.1 版本）。
+
 ---
 
 ## 4. SDK 生命周期状态
