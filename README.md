@@ -4,6 +4,8 @@ Reproducible build of an IP-KVM appliance for the **LCKFB TaishanPi / 泰山派
 RK3566** (1M class) board, based on the vendor Linux 6.1 SDK
 `tspi_1m_linux_kernel6.1_sdk_20260807`.
 
+> English | [简体中文](README.zh.md)
+
 The target is a **KVM appliance**, not a general-purpose server:
 
 - Rockchip/LCKFB vendor U-Boot + vendor Linux 6.1 board support.
