@@ -16,6 +16,8 @@
 
 目标是一台 **KVM 设备**，而不是通用服务器。`AGENTS.md` 是权威的项目契约（含 §24 代理引导/实施说明），本 README 是快速上手路径。
 
+> 本文档及 `docs/zh/` 下的全部指南均有中文版；`docs/STATUS.md`（实施状态日志）暂仅英文。
+
 ## 当前状态
 
 厂商 SDK **尚未就位**（State A）。仓库的脚手架、脚本、构建器、配置与文档已全部就绪；SDK 就位后相关步骤自动激活。详见 [`docs/STATUS.md`](docs/STATUS.md)。
@@ -79,14 +81,14 @@ dist/             最终烧录产物（gitignored）
 
 ## 文档
 
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — 构建机/目标机边界与拓扑
-- [`docs/BUILD.md`](docs/BUILD.md) — 完整可复现构建流程
-- [`docs/HARDWARE.md`](docs/HARDWARE.md) — Y 型线、VBUS 安全、USB 角色、UVC
-- [`docs/NETWORK.md`](docs/NETWORK.md) — Wi-Fi 站点模式、恢复热点、mDNS、SSH
-- [`docs/RECOVERY.md`](docs/RECOVERY.md) — UART、ADB 调试、MaskRom、网络恢复
-- [`docs/FLASHING.md`](docs/FLASHING.md) — 手动烧录流程
-- [`docs/VALIDATION.md`](docs/VALIDATION.md) — 静态与上机测试
-- [`docs/STATUS.md`](docs/STATUS.md) — 当前实施状态
+- [`docs/zh/ARCHITECTURE.md`](docs/zh/ARCHITECTURE.md) — 构建机/目标机边界与拓扑
+- [`docs/zh/BUILD.md`](docs/zh/BUILD.md) — 完整可复现构建流程
+- [`docs/zh/HARDWARE.md`](docs/zh/HARDWARE.md) — Y 型线、VBUS 安全、USB 角色、UVC
+- [`docs/zh/NETWORK.md`](docs/zh/NETWORK.md) — Wi-Fi 站点模式、恢复热点、mDNS、SSH
+- [`docs/zh/RECOVERY.md`](docs/zh/RECOVERY.md) — UART、ADB 调试、MaskRom、网络恢复
+- [`docs/zh/FLASHING.md`](docs/zh/FLASHING.md) — 手动烧录流程
+- [`docs/zh/VALIDATION.md`](docs/zh/VALIDATION.md) — 静态与上机测试
+- [`docs/STATUS.md`](docs/STATUS.md) — 当前实施状态（英文）
 
 ## 安全须知
 
